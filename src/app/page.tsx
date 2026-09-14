@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import AnalysePaneel from "@/components/AnalysePaneel";
 import KolomMappingKiezer from "@/components/KolomMappingKiezer";
+import SchrijfwijzerKiezer from "@/components/SchrijfwijzerKiezer";
 import ScoreTabel from "@/components/ScoreTabel";
 import UploadZone from "@/components/UploadZone";
 import { detecteerKolommen, leesCsv, naarFeedbackItems, type CsvBestand } from "@/lib/csv";
@@ -17,6 +18,7 @@ export default function Home() {
   const [mapping, setMapping] = useState<Partial<KolomMapping>>({});
   const [geselecteerd, setGeselecteerd] = useState<string | null>(null);
   const [fout, setFout] = useState<string | null>(null);
+  const [schrijfwijzer, setSchrijfwijzer] = useState("");
 
   function verwerkBestand(naam: string, tekst: string) {
     setFout(null);
@@ -99,8 +101,14 @@ export default function Home() {
                   />
                 </div>
 
+                <SchrijfwijzerKiezer waarde={schrijfwijzer} onWijzig={setSchrijfwijzer} />
+
                 {geselecteerdePagina && (
-                  <AnalysePaneel key={geselecteerdePagina.url} pagina={geselecteerdePagina} />
+                  <AnalysePaneel
+                    key={geselecteerdePagina.url}
+                    pagina={geselecteerdePagina}
+                    schrijfwijzer={schrijfwijzer}
+                  />
                 )}
               </>
             ) : (

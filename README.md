@@ -36,6 +36,25 @@ Optioneel, maar sterk aanbevolen: een kolom met de **toelichting** (`toelichting
 Kolomnamen worden automatisch herkend; klopt er iets niet, dan pas je het in de app aan. Komma-
 en puntkomma-gescheiden bestanden werken allebei, en `ja/nee`, `yes/no` en `1/0` worden gelezen.
 
+## Schrijfwijzer
+
+De AI toetst de verbetersuggesties aan jullie eigen richtlijnen en noemt per suggestie
+op welke regel die steunt.
+
+- **`content/schrijfwijzer.md`** is de standaard. Dat bestand bevat nu een startset met
+  algemene uitgangspunten — **vervang het door jullie eigen schrijfwijzer en
+  dienstverleningsstrategie.** Het staat in de repo, dus wijzigingen zijn te reviewen en
+  terug te draaien.
+- **In de app** kan een redacteur een eigen schrijfwijzer plakken of als bestand laden.
+  Die gaat voor op het repo-bestand en wordt in de browser onthouden, niet op de server
+  opgeslagen. Handig om iets te proberen zonder deploy.
+
+Ontbreken ze allebei, dan analyseert de app gewoon door zonder richtlijnen; de analyse
+vermeldt dan welke bron is gebruikt.
+
+De schrijfwijzer gaat mee in de systeemprompt achter een cachemarkering. Omdat die bij
+elke pagina gelijk is, betaal je de tokens ervan maar één keer per reeks analyses.
+
 ## Hoe de score werkt
 
 Per pagina: het percentage bezoekers dat "ja" antwoordde. Reacties zonder bruikbaar ja/nee-antwoord
@@ -58,8 +77,10 @@ De domeinlogica in `src/lib/` (`csv.ts`, `score.ts`) staat los van React en is v
 De AI-analyse loopt via `src/app/api/analyze/route.ts`: die roept Claude aan met een vast
 JSON-schema (`src/lib/analyse-schema.ts`), zodat het antwoord altijd dezelfde vorm heeft.
 
+Let op bij `src/lib/schrijfwijzer.ts` en `schrijfwijzer-server.ts`: die zijn gesplitst omdat
+de eerste ook in de browser draait. Zet er niets in dat `node:`-modules nodig heeft.
+
 ## Nog niet in deze versie
 
-Telefoondata, schrijfwijzers als context, opslag van analyses, gebruikersbeheer en een directe
-koppeling met het feedbacksysteem. De scorelogica is bronneutraal opgezet, zodat die er additief
-bij kunnen.
+Telefoondata, opslag van analyses, gebruikersbeheer en een directe koppeling met het
+feedbacksysteem. De scorelogica is bronneutraal opgezet, zodat die er additief bij kunnen.

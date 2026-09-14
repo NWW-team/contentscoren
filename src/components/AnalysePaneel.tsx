@@ -5,7 +5,19 @@ import type { PaginaAnalyse } from "@/lib/analyse-schema";
 import { afstandTotStreef } from "@/lib/score";
 import type { PaginaScore } from "@/lib/types";
 
-type Status = { soort: "leeg" } | { soort: "bezig" } | { soort: "klaar"; analyse: PaginaAnalyse } | { soort: "fout"; melding: string };
+type SchrijfwijzerInfo = { bron: "eigen" | "bestand" | "geen"; ingekort: boolean };
+
+type Status =
+  | { soort: "leeg" }
+  | { soort: "bezig" }
+  | { soort: "klaar"; analyse: PaginaAnalyse; schrijfwijzer?: SchrijfwijzerInfo }
+  | { soort: "fout"; melding: string };
+
+const BRON_LABEL: Record<SchrijfwijzerInfo["bron"], string> = {
+  eigen: "getoetst aan je eigen schrijfwijzer",
+  bestand: "getoetst aan content/schrijfwijzer.md",
+  geen: "zonder schrijfwijzer geanalyseerd",
+};
 
 const IMPACT_KLEUR: Record<string, string> = {
   hoog: "bg-red-100 text-red-900",
@@ -13,7 +25,13 @@ const IMPACT_KLEUR: Record<string, string> = {
   laag: "bg-slate-100 text-slate-700",
 };
 
-export default function AnalysePaneel({ pagina }: { pagina: PaginaScore }) {
+export default function AnalysePaneel({
+  pagina,
+  schrijfwijzer,
+}: {
+  pagina: PaginaScore;
+  schrijfwijzer: string;
+}) {
   const [status, setStatus] = useState<Status>({ soort: "leeg" });
   const [gekopieerd, setGekopieerd] = useState<number | null>(null);
 
@@ -27,6 +45,7 @@ export default function AnalysePaneel({ pagina }: { pagina: PaginaScore }) {
           url: pagina.url,
           titel: pagina.titel,
           scorePct: pagina.scorePct,
+          schrijfwijzer: schrijfwijzer.trim() === "" ? undefined : schrijfwijzer,
           items: pagina.items.map(({ nuttig, toelichting, datum }) => ({ nuttig, toelichting, datum })),
         }),
       });
@@ -35,7 +54,7 @@ export default function AnalysePaneel({ pagina }: { pagina: PaginaScore }) {
         setStatus({ soort: "fout", melding: data.fout ?? "Er ging iets mis." });
         return;
       }
-      setStatus({ soort: "klaar", analyse: data.analyse });
+      setStatus({ soort: "klaar", analyse: data.analyse, schrijfwijzer: data.schrijfwijzer });
     } catch {
       setStatus({ soort: "fout", melding: "Kon de server niet bereiken." });
     }
@@ -81,7 +100,13 @@ export default function AnalysePaneel({ pagina }: { pagina: PaginaScore }) {
             <p className="text-base leading-relaxed">{status.analyse.samenvatting}</p>
             <p className="mt-2 text-xs uppercase tracking-wide text-gedempt">
               Vertrouwen in deze analyse: {status.analyse.vertrouwen}
+              {status.schrijfwijzer && ` — ${BRON_LABEL[status.schrijfwijzer.bron]}`}
             </p>
+            {status.schrijfwijzer?.ingekort && (
+              <p className="mt-1 text-xs text-amber-800">
+                De schrijfwijzer was te lang en is ingekort; alleen het eerste deel is meegewogen.
+              </p>
+            )}
           </div>
 
           <div>
@@ -120,6 +145,12 @@ export default function AnalysePaneel({ pagina }: { pagina: PaginaScore }) {
                 <li key={index} className="rounded-lg border border-rand p-4">
                   <p className="font-medium">{suggestie.titel}</p>
                   <p className="mt-1 text-sm text-gedempt">{suggestie.waarom}</p>
+                  {suggestie.richtlijn && (
+                    <p className="mt-2 text-xs text-gedempt">
+                      <span className="font-semibold uppercase tracking-wide">Richtlijn</span>{" "}
+                      {suggestie.richtlijn}
+                    </p>
+                  )}
                   <div className="mt-3 rounded-lg bg-achtergrond p-3">
                     <p className="whitespace-pre-wrap text-sm">{suggestie.voorbeeldtekst}</p>
                   </div>

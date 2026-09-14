@@ -27,6 +27,12 @@ export const PaginaAnalyseSchema = z.object({
         voorbeeldtekst: z
           .string()
           .describe("Kant-en-klare tekst op B1-niveau die de redacteur kan redigeren en plaatsen"),
+        richtlijn: z
+          .string()
+          .nullable()
+          .describe(
+            "De regel uit de schrijfwijzer waar deze suggestie op steunt, kort geciteerd of samengevat. Null als geen richtlijn van toepassing is of er geen schrijfwijzer is meegegeven.",
+          ),
       }),
     )
     .describe("Concrete verbeteringen, belangrijkste eerst"),
@@ -42,6 +48,7 @@ export const AnalyseVerzoekSchema = z.object({
   url: z.string().min(1),
   titel: z.string().min(1),
   scorePct: z.number(),
+  schrijfwijzer: z.string().optional(),
   items: z
     .array(
       z.object({
