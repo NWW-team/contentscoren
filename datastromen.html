@@ -1,0 +1,982 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Datastromen van Contentscoren</title>
+<style>
+:root{
+  color-scheme: light;
+  --paper:#eef0f4; --panel:#ffffff; --panel-2:#f6f8fb; --lane:#f2f4f8;
+  --ink:#141c28; --ink-2:#44526a; --muted:#6b7a92;
+  --rule:#d3d9e3; --rule-2:#b6c0ce;
+  --c-db:#5b46c9;      --c-db-bg:#ece9fb;
+  --c-browser:#9a5a00;  --c-browser-bg:#fbeedb;
+  --c-ext:#0d7268;      --c-ext-bg:#dcf0ed;
+  --c-tijd:#57657c;     --c-tijd-bg:#e7ebf2;
+  --c-keuze:#b0186a;    --c-keuze-bg:#fbe3ef;
+  --shadow:0 1px 2px rgba(20,28,40,.06), 0 8px 24px -16px rgba(20,28,40,.35);
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --paper:#0d121a; --panel:#161d29; --panel-2:#1b2331; --lane:#121926;
+    --ink:#e7ecf4; --ink-2:#aeb9cb; --muted:#8593a9;
+    --rule:#2a3444; --rule-2:#3e4b60;
+    --c-db:#ab9bff;      --c-db-bg:#262048;
+    --c-browser:#e6a64e;  --c-browser-bg:#3a2a12;
+    --c-ext:#53cabb;      --c-ext-bg:#0e3532;
+    --c-tijd:#a3b3ca;     --c-tijd-bg:#232c3a;
+    --c-keuze:#f684b9;    --c-keuze-bg:#3d1431;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --paper:#0d121a; --panel:#161d29; --panel-2:#1b2331; --lane:#121926;
+  --ink:#e7ecf4; --ink-2:#aeb9cb; --muted:#8593a9;
+  --rule:#2a3444; --rule-2:#3e4b60;
+  --c-db:#ab9bff; --c-db-bg:#262048;
+  --c-browser:#e6a64e; --c-browser-bg:#3a2a12;
+  --c-ext:#53cabb; --c-ext-bg:#0e3532;
+  --c-tijd:#a3b3ca; --c-tijd-bg:#232c3a;
+  --c-keuze:#f684b9; --c-keuze-bg:#3d1431;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--sans); font-size:15px; line-height:1.55;
+  padding-block:0; padding-left:max(16px, env(safe-area-inset-left,0px));
+  padding-right:max(16px, env(safe-area-inset-right,0px));
+}
+.wrap{max-width:1180px; margin:0 auto; padding-block:0 72px}
+
+/* ---------- title block ---------- */
+.titleblock{
+  border-bottom:2px solid var(--ink); padding-block:44px 22px; margin-bottom:34px;
+}
+.eyebrow{
+  font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--muted); margin:0 0 14px;
+}
+h1{
+  font-family:var(--serif); font-weight:600; font-size:clamp(30px,6vw,52px);
+  line-height:1.06; letter-spacing:-.015em; margin:0; text-wrap:balance;
+}
+.dek{
+  margin:16px 0 0; max-width:62ch; font-size:17px; color:var(--ink-2); line-height:1.6;
+}
+.meta{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  gap:2px 26px; margin-top:26px; border-top:1px solid var(--rule); padding-top:16px;
+}
+.meta div{padding-block:4px}
+.meta dt{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.11em; text-transform:uppercase;
+  color:var(--muted); margin:0 0 2px;
+}
+.meta dd{margin:0; font-size:13.5px; color:var(--ink-2)}
+.meta dd code{font-family:var(--mono); font-size:12px; color:var(--ink)}
+
+/* ---------- section ---------- */
+section{margin-bottom:48px}
+h2{
+  font-family:var(--serif); font-weight:600; font-size:clamp(22px,3.4vw,30px);
+  line-height:1.15; letter-spacing:-.01em; margin:0 0 6px; text-wrap:balance;
+}
+h3{font-family:var(--sans); font-size:15px; font-weight:700; margin:0 0 8px; letter-spacing:-.005em}
+.lede{margin:0 0 22px; color:var(--ink-2); max-width:70ch}
+.num{
+  font-family:var(--mono); font-size:11px; letter-spacing:.14em; color:var(--muted);
+  text-transform:uppercase; display:block; margin-bottom:8px;
+}
+
+/* ---------- status strip ---------- */
+.statusgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; margin-top:8px}
+.statuscard{background:var(--panel); border:1px solid var(--rule); border-radius:12px; padding:16px 18px; box-shadow:var(--shadow)}
+.statuscard.built{border-left:4px solid var(--c-ext)}
+.statuscard.plan{border-left:4px solid var(--c-keuze); border-left-style:dashed}
+.statuscard ul{margin:8px 0 0; padding-left:17px; font-size:13.5px; color:var(--ink-2); line-height:1.65}
+.statuscard li{margin-bottom:3px}
+.statuscard li code, .statuscard p code{font-family:var(--mono); font-size:11.5px; background:var(--panel-2); padding:1px 4px; border-radius:3px; color:var(--ink)}
+
+/* ---------- controls ---------- */
+.controls{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
+  background:var(--paper); border-bottom:1px solid var(--rule);
+  padding-block:12px; margin-bottom:22px;
+  display:flex; flex-wrap:wrap; gap:14px 26px; align-items:center;
+}
+.ctrlgroup{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.ctrllabel{
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--muted);
+}
+.seg{display:inline-flex; flex-wrap:wrap; max-width:100%; background:var(--panel-2); border:1px solid var(--rule); border-radius:9px; padding:3px; gap:3px}
+.seg button{
+  font:inherit; font-size:13px; font-weight:600; border:0; border-radius:6px; cursor:pointer;
+  padding:6px 12px; background:transparent; color:var(--ink-2); white-space:nowrap;
+}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--panel); color:var(--ink); box-shadow:var(--shadow)}
+.seg button:focus-visible, .switch:focus-visible{outline:2px solid var(--c-db); outline-offset:2px}
+.switch{
+  font:inherit; font-size:13px; font-weight:600; cursor:pointer;
+  display:inline-flex; align-items:center; gap:9px;
+  background:var(--panel); border:1px solid var(--rule); border-radius:9px; padding:6px 13px 6px 10px; color:var(--ink);
+}
+.switch .dot{width:30px; height:17px; border-radius:9px; background:var(--rule-2); position:relative; transition:background .16s}
+.switch .dot::after{content:""; position:absolute; top:2px; left:2px; width:13px; height:13px; border-radius:50%; background:var(--panel); transition:transform .16s}
+.switch[aria-pressed="true"] .dot{background:var(--c-db)}
+.switch[aria-pressed="true"] .dot::after{transform:translateX(13px)}
+.tally{font-family:var(--mono); font-size:11.5px; color:var(--muted); margin-left:auto}
+
+/* ---------- legend ---------- */
+.legend{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:10px;
+  margin:0 0 20px; padding:0; list-style:none;
+}
+.legend li{
+  background:var(--panel); border:1px solid var(--rule); border-radius:10px; padding:11px 13px;
+  display:flex; gap:10px; align-items:flex-start;
+}
+.swatch{width:13px; height:13px; border-radius:3px; margin-top:3px; flex:none; border:1.5px solid}
+.legend b{display:block; font-size:12.5px; letter-spacing:-.005em}
+.legend span{display:block; font-size:11.5px; color:var(--muted); line-height:1.45}
+.sw-db{background:var(--c-db-bg); border-color:var(--c-db)}
+.sw-browser{background:var(--c-browser-bg); border-color:var(--c-browser)}
+.sw-ext{background:var(--c-ext-bg); border-color:var(--c-ext)}
+.sw-tijd{background:var(--c-tijd-bg); border-color:var(--c-tijd)}
+.sw-keuze{background:var(--c-keuze-bg); border-color:var(--c-keuze)}
+.legend-note{
+  font-size:12.5px; color:var(--ink-2); background:var(--panel-2); border:1px dashed var(--rule-2);
+  border-radius:10px; padding:11px 14px; margin:0 0 26px;
+}
+.legend-note b{color:var(--ink)}
+
+/* ---------- diagram ---------- */
+figure.diagram{margin:0}
+.scroller{
+  overflow-x:auto; background:var(--panel); border:1px solid var(--rule);
+  border-radius:14px; box-shadow:var(--shadow); padding:6px;
+  -webkit-overflow-scrolling:touch;
+}
+.scroller svg{display:block; min-width:1020px; width:100%; height:auto}
+figcaption{margin-top:12px; font-size:12.5px; color:var(--muted); max-width:78ch}
+.scrollhint{
+  display:none; font-family:var(--mono); font-size:11px; color:var(--muted);
+  margin:0 0 8px; letter-spacing:.04em;
+}
+@media (max-width:1060px){ .scrollhint{display:block} }
+
+/* svg type */
+.lanehead{font-family:var(--mono); font-size:10px; letter-spacing:.13em; fill:var(--muted)}
+.lanebg{fill:var(--lane)}
+.lanerule{stroke:var(--rule-2); stroke-width:1}
+.nbox{fill:var(--panel); stroke:var(--rule-2); stroke-width:1.4}
+.ntitle{font-family:var(--sans); font-size:12.5px; font-weight:700; fill:var(--ink)}
+.nsub{font-family:var(--sans); font-size:9.5px; fill:var(--muted)}
+.nmono{font-family:var(--mono); font-size:8.5px; fill:var(--ink-2)}
+.arr{fill:none; stroke-width:1.7}
+.lbg{fill:var(--panel); stroke:none}
+.lbl{font-family:var(--sans); font-size:9.3px; fill:var(--ink-2); text-anchor:middle}
+.lbl.start{text-anchor:start} .lbl.end{text-anchor:end}
+.crudline{font-family:var(--mono); font-size:8.2px; letter-spacing:.07em; text-anchor:middle; font-weight:700}
+.crudline.start{text-anchor:start} .crudline.end{text-anchor:end}
+.note{font-family:var(--sans); font-size:9.3px; fill:var(--muted)}
+
+.n-db{stroke:var(--c-db); fill:var(--c-db-bg)}
+.n-browser{stroke:var(--c-browser); fill:var(--c-browser-bg)}
+.n-ext{stroke:var(--c-ext); fill:var(--c-ext-bg)}
+.n-tijd{stroke:var(--c-tijd); fill:var(--c-tijd-bg)}
+.n-keuze{stroke:var(--c-keuze); fill:var(--c-keuze-bg)}
+.n-app{fill:var(--panel); stroke:var(--ink); stroke-width:1.8}
+.dash{stroke-dasharray:6 4}
+.a-db{stroke:var(--c-db)} .crud-db{fill:var(--c-db)}
+.a-browser{stroke:var(--c-browser)} .crud-browser{fill:var(--c-browser)}
+.a-ext{stroke:var(--c-ext)} .crud-ext{fill:var(--c-ext)}
+.a-tijd{stroke:var(--c-tijd)} .crud-tijd{fill:var(--c-tijd)}
+.a-keuze{stroke:var(--c-keuze)} .crud-keuze{fill:var(--c-keuze)}
+.m-db{fill:var(--c-db)} .m-browser{fill:var(--c-browser)} .m-ext{fill:var(--c-ext)}
+.m-tijd{fill:var(--c-tijd)} .m-keuze{fill:var(--c-keuze)}
+
+.flow, .node{transition:opacity .22s}
+body.f-db .flow:not([data-cat="db"]):not([data-cat="keuze"]),
+body.f-db .node:not([data-cats~="db"]):not([data-cats~="keuze"]){opacity:.13}
+body.f-geendb .flow[data-cat="db"], body.f-geendb .flow[data-cat="keuze"],
+body.f-geendb .node:not([data-cats~="ext"]):not([data-cats~="tijd"]):not([data-cats~="browser"]){opacity:.13}
+body.no-crud .crudline{display:none}
+body.no-crud .crudcell, body.no-crud .crudcol{display:none}
+@media (prefers-reduced-motion:reduce){ *{transition:none !important} }
+
+/* ---------- matrix ---------- */
+.matrix{width:100%; border-collapse:collapse; font-size:13px}
+.matrix caption{text-align:left; font-size:12.5px; color:var(--muted); padding-bottom:10px}
+.matrix th{
+  text-align:left; font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--muted); font-weight:400; padding:0 12px 9px 0; border-bottom:1.5px solid var(--ink); vertical-align:bottom;
+}
+.matrix td{padding:15px 12px 15px 0; border-bottom:1px solid var(--rule); vertical-align:top; line-height:1.5}
+.matrix tbody tr:hover{background:var(--panel-2)}
+.matrix tr[hidden]{display:none}
+.gname{font-weight:700; font-size:13.5px; display:block; margin-bottom:5px; letter-spacing:-.005em}
+.route{margin:0; font-size:12.5px; color:var(--ink-2)}
+.route .step{display:block; padding-left:15px; position:relative; margin-bottom:3px}
+.route .step::before{content:"→"; position:absolute; left:0; color:var(--muted)}
+.route .step:first-child{padding-left:15px}
+.route .step:first-child::before{content:"•"}
+.route b{font-weight:600; color:var(--ink)}
+code{font-family:var(--mono); font-size:11.5px; background:var(--panel-2); padding:1px 4px; border-radius:3px; border:1px solid var(--rule); color:var(--ink)}
+.route code{font-size:11px}
+.crudcell{font-family:var(--mono); font-size:11.5px; line-height:1.55}
+.crudletters b{display:inline-block; min-width:17px; text-align:center; font-weight:700; padding:1px 3px; border-radius:3px; margin-right:2px}
+.waar{display:block; color:var(--muted); font-size:10.5px; margin-top:5px; font-family:var(--sans); line-height:1.4}
+.none{color:var(--muted); font-style:italic; font-family:var(--sans); font-size:12px}
+.chip{
+  display:inline-block; font-family:var(--mono); font-size:10px; font-weight:700; letter-spacing:.05em;
+  padding:3px 7px; border-radius:5px; border:1.5px solid; white-space:normal; line-height:1.3;
+}
+.chip.db{background:var(--c-db-bg); border-color:var(--c-db); color:var(--c-db)}
+.chip.browser{background:var(--c-browser-bg); border-color:var(--c-browser); color:var(--c-browser)}
+.chip.ext{background:var(--c-ext-bg); border-color:var(--c-ext); color:var(--c-ext)}
+.chip.tijd{background:var(--c-tijd-bg); border-color:var(--c-tijd); color:var(--c-tijd)}
+.chip.keuze{background:var(--c-keuze-bg); border-color:var(--c-keuze); color:var(--c-keuze)}
+.st{display:inline-block; font-family:var(--mono); font-size:9.5px; letter-spacing:.06em; text-transform:uppercase;
+  padding:2px 6px; border-radius:4px; background:var(--panel-2); border:1px solid var(--rule); color:var(--muted); margin-bottom:6px}
+.st.plan{border-style:dashed; border-color:var(--c-keuze); color:var(--c-keuze)}
+.reden{font-size:12.5px; color:var(--ink-2); margin:0}
+.blijft{display:block; margin-top:8px; font-size:12px; color:var(--ink); border-left:2px solid var(--rule-2); padding-left:9px}
+.blijft b{font-family:var(--mono); font-size:10px; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); display:block}
+.vraag{display:block; margin-top:8px; font-size:12px; color:var(--c-keuze); border-left:2px solid var(--c-keuze); padding-left:9px}
+
+@media (max-width:520px){
+  .ctrlgroup{width:100%}
+  .seg{width:100%}
+  .seg button{flex:1 1 auto; white-space:normal; font-size:12.5px; padding:6px 9px}
+  .tally{margin-left:0}
+}
+@media (max-width:860px){
+  .matrix, .matrix tbody, .matrix tr, .matrix td{display:block; width:100%}
+  .matrix thead{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
+  .matrix tr{background:var(--panel); border:1px solid var(--rule); border-radius:12px; margin-bottom:14px; padding:6px 14px 10px; box-shadow:var(--shadow)}
+  .matrix tbody tr:hover{background:var(--panel)}
+  .matrix td{border-bottom:1px dashed var(--rule); padding:11px 0}
+  .matrix td:last-child{border-bottom:0}
+  .matrix td::before{
+    content:attr(data-label); display:block; font-family:var(--mono); font-size:9.5px;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:5px;
+  }
+}
+
+/* ---------- advice ---------- */
+.advies{background:var(--panel); border:1px solid var(--rule); border-radius:16px; padding:clamp(20px,3.5vw,34px); box-shadow:var(--shadow)}
+.advies h2{margin-top:0}
+.adviesgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(255px,1fr)); gap:20px; margin-top:24px}
+.adviescol{border-top:2px solid var(--rule); padding-top:14px}
+.adviescol.keep{border-top-color:var(--c-db)}
+.adviescol.drop{border-top-color:var(--c-tijd)}
+.adviescol.ask{border-top-color:var(--c-keuze)}
+.adviescol h3{font-family:var(--mono); font-size:10.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--muted); font-weight:400}
+.adviescol ol, .adviescol ul{margin:10px 0 0; padding-left:18px; font-size:13px; color:var(--ink-2); line-height:1.6}
+.adviescol li{margin-bottom:9px}
+.adviescol li b{color:var(--ink)}
+.verdict{
+  border-left:4px solid var(--c-db); background:var(--c-db-bg); border-radius:0 12px 12px 0;
+  padding:16px 20px; margin:24px 0 0; font-size:14.5px; color:var(--ink); line-height:1.6;
+}
+.verdict b{font-weight:700}
+pre{
+  font-family:var(--mono); font-size:11.5px; line-height:1.65; background:var(--panel-2);
+  border:1px solid var(--rule); border-radius:10px; padding:15px 17px; overflow-x:auto; margin:14px 0 0; color:var(--ink-2);
+}
+pre b{color:var(--ink); font-weight:700}
+.aannames{background:var(--panel-2); border:1px dashed var(--rule-2); border-radius:14px; padding:clamp(18px,3vw,26px)}
+.aannames ol{margin:14px 0 0; padding-left:20px; font-size:13.5px; color:var(--ink-2); line-height:1.65}
+.aannames li{margin-bottom:11px}
+.aannames li b{color:var(--ink)}
+footer{margin-top:44px; padding-top:18px; border-top:1px solid var(--rule); font-size:12px; color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="titleblock">
+  <p class="eyebrow">Contentscoren · datastroomanalyse · 15 september 2026</p>
+  <h1>Waar de feedback vandaan komt, en wat ervan mag blijven</h1>
+  <p class="dek">
+    Contentscoren helpt een redacteur per kwartaal de tien slechtst scorende pagina&#8217;s over reisdocumenten
+    te vinden en laat Claude de oorzaken en een kant-en-klaar verbetervoorstel opstellen.
+    Deze pagina brengt in kaart welke gegevens daarbij bewegen, en beantwoordt één vraag per gegeven:
+    moet dit na het sluiten van het tabblad nog bestaan?
+  </p>
+  <dl class="meta">
+    <div><dt>Gelezen bronnen</dt><dd><code>STRATEGY.md</code> · pull request #2 · de volledige <code>src/</code></dd></div>
+    <div><dt>Code die in kaart is gebracht</dt><dd>branch <code>claude/vigilant-rubin-l5zlet</code>, nog niet op <code>main</code></dd></div>
+    <div><dt>Huidige eigen database</dt><dd>geen — de app is bewust staatloos</dd></div>
+    <div><dt>Deze pagina wijzigt</dt><dd>niets aan de app; er is geen database aangemaakt</dd></div>
+  </dl>
+</header>
+
+<section>
+  <span class="num">01 — stand van zaken</span>
+  <h2>Wat er draait, en wat nog een zin in de strategie is</h2>
+  <p class="lede">
+    Alles hieronder is uit de code gelezen, niet aangenomen. De strategiesporen die nog geen regel code hebben,
+    staan apart — die tekenen straks als stippellijn in het diagram.
+  </p>
+  <div class="statusgrid">
+    <div class="statuscard built">
+      <h3>Gebouwd en werkend</h3>
+      <ul>
+        <li>CSV inlezen met <code>papaparse</code>, kolommen automatisch herkennen en handmatig kunnen corrigeren</li>
+        <li>Score per pagina = percentage &#8220;ja&#8221;; ranglijst van de tien slechtste met minstens 10 reacties</li>
+        <li>Analyse per pagina door <code>claude-opus-5</code> met een afgedwongen JSON-schema</li>
+        <li>Toetsing aan een schrijfwijzer: uit de repo, of een eigen versie die de redacteur inlaadt</li>
+        <li>Voorbeelddata: 76 verzonnen reacties over 7 reisdocumentpagina&#8217;s</li>
+      </ul>
+    </div>
+    <div class="statuscard plan">
+      <h3>Staat alleen in <code>STRATEGY.md</code></h3>
+      <ul>
+        <li>Telefoondata als tweede bron — geen bron, geen koppeling, geen code</li>
+        <li>Een directe koppeling met het webfeedback-systeem — nu een handmatige CSV-export</li>
+        <li>Redacteursplanning en werkstroom over een heel kwartaal</li>
+        <li>Terugkijken of een verbetervoorstel de score richting 80% heeft geduwd</li>
+      </ul>
+    </div>
+    <div class="statuscard">
+      <h3>Opvallend in de huidige opzet</h3>
+      <ul>
+        <li>De server schrijft <b>niets</b> weg. <code>/api/analyze</code> bouwt een prompt, geeft het antwoord door en vergeet het.</li>
+        <li>Eén ding wordt wél bewaard: de schrijfwijzer, in <code>localStorage</code> van de browser.</li>
+        <li><code>AnalysePaneel</code> krijgt <code>key={url}</code>. Een andere pagina aanklikken wist de analyse die je net hebt laten maken.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<div class="controls">
+  <div class="ctrlgroup">
+    <span class="ctrllabel" id="flabel">Toon</span>
+    <div class="seg" role="group" aria-labelledby="flabel">
+      <button type="button" data-filter="alle" aria-pressed="true">Alle data</button>
+      <button type="button" data-filter="db" aria-pressed="false">Databaseopslag</button>
+      <button type="button" data-filter="geendb" aria-pressed="false">Geen eigen databaseopslag</button>
+    </div>
+  </div>
+  <div class="ctrlgroup">
+    <button type="button" class="switch" id="crudbtn" aria-pressed="true"><span class="dot" aria-hidden="true"></span>CRUD-labels</button>
+  </div>
+  <span class="tally" id="tally">14 van 14 gegevens</span>
+</div>
+
+<section>
+  <span class="num">02 — legenda</span>
+  <h2>Vijf opslagcategorieën, met kleur én tekst</h2>
+  <ul class="legend">
+    <li><span class="swatch sw-db"></span><span><b>Duurzaam in de eigen database</b><span>Advies: moet een herlaadbeurt en een kwartaal overleven.</span></span></li>
+    <li><span class="swatch sw-browser"></span><span><b>Browseropslag (localStorage)</b><span>Dit is opslag. Blijft staan, maar alleen in deze browser.</span></span></li>
+    <li><span class="swatch sw-ext"></span><span><b>Staat al extern of in een bestand</b><span>Niet naar een eigen database kopiëren.</span></span></li>
+    <li><span class="swatch sw-tijd"></span><span><b>Tijdelijk — mag weg</b><span>Invoer, transport, berekening of weergave.</span></span></li>
+    <li><span class="swatch sw-keuze"></span><span><b>Keuze nodig</b><span>Er ligt nog een vraag open; die staat in de matrix.</span></span></li>
+  </ul>
+  <p class="legend-note">
+    <b>De kleur toont het advies, niet de huidige situatie.</b> Twee gegevens zijn paars gekleurd terwijl er vandaag
+    geen database is: de score per pagina en de AI-analyse. In de matrix staat bij elk gegeven apart wat er <i>nu</i>
+    gebeurt en wat ik <i>adviseer</i>. Stippellijnen en stippelranden betekenen: nog niet gebouwd.
+    De filter &#8220;databaseopslag&#8221; toont paars én roze, want een twijfelgeval kan alsnog opslag worden.
+  </p>
+</section>
+
+<section>
+  <span class="num">03 — diagram</span>
+  <h2>De route van een reactie tot een verbetervoorstel</h2>
+  <p class="lede">
+    Vier zones: waar de gegevens vandaan komen, wat de browser doet, wat de server doet, en wat het huis verlaat.
+    Op elke pijl staat wát er stroomt en welke CRUD-actie dat is op opgeslagen gegevens.
+  </p>
+  <p class="scrollhint">↔ Sleep het diagram opzij om alle vier de zones te zien.</p>
+  <figure class="diagram">
+    <div class="scroller">
+<svg viewBox="0 0 1200 740" role="img" aria-label="Datastroomdiagram van Contentscoren: een CSV-export met webfeedback wordt in de browser ingelezen en gescoord, de feedback van één gekozen pagina gaat naar de eigen server, die er met een schrijfwijzer een prompt van maakt en de Claude API bevraagt; de analyse komt terug op het scherm en wordt nergens bewaard. Alleen de schrijfwijzer wordt opgeslagen, in localStorage. Een eigen database bestaat nog niet en wordt geadviseerd voor analyses en kwartaalscores.">
+<defs>
+<marker id="ah-ext" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="m-ext"/></marker>
+<marker id="ah-tijd" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="m-tijd"/></marker>
+<marker id="ah-db" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="m-db"/></marker>
+<marker id="ah-browser" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="m-browser"/></marker>
+<marker id="ah-keuze" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="m-keuze"/></marker>
+</defs>
+
+<rect class="lanebg" x="8" y="38" width="210" height="514" rx="14"/>
+<rect class="lanebg" x="298" y="38" width="268" height="484" rx="14"/>
+<rect class="lanebg" x="646" y="38" width="252" height="484" rx="14"/>
+<rect class="lanebg" x="978" y="38" width="216" height="484" rx="14"/>
+<text class="lanehead" x="16" y="22">BRONNEN &amp; REDACTEUR</text>
+<text class="lanehead" x="308" y="22">BROWSER (CLIENT)</text>
+<text class="lanehead" x="656" y="22">SERVER — NEXT.JS ROUTE HANDLERS</text>
+<text class="lanehead" x="988" y="22">EXTERNE DIENST</text>
+<line class="lanerule" x1="16" y1="30" x2="208" y2="30"/>
+<line class="lanerule" x1="308" y1="30" x2="556" y2="30"/>
+<line class="lanerule" x1="656" y1="30" x2="888" y2="30"/>
+<line class="lanerule" x1="988" y1="30" x2="1184" y2="30"/>
+
+<!-- ============ NODES ============ -->
+<g class="node" data-cats="ext">
+  <rect class="nbox n-ext" x="16" y="64" width="192" height="58" rx="10"/>
+  <text class="ntitle" x="28" y="84">Webfeedback-systeem</text>
+  <text class="nsub" x="28" y="99">waar bezoekers &#8220;vond u wat u zocht?&#8221;</text>
+  <text class="nsub" x="28" y="111">beantwoorden — buiten de app</text>
+</g>
+<g class="node" data-cats="ext">
+  <rect class="nbox n-ext" x="16" y="164" width="192" height="76" rx="10"/>
+  <text class="ntitle" x="28" y="185">Feedback-export (CSV)</text>
+  <text class="nsub" x="28" y="201">voorbeeld: 76 reacties, 7 pagina&#8217;s</text>
+  <text class="nmono" x="28" y="215">url, titel, datum, nuttig,</text>
+  <text class="nmono" x="28" y="227">toelichting</text>
+</g>
+<g class="node" data-cats="keuze">
+  <rect class="nbox n-keuze dash" x="16" y="272" width="192" height="62" rx="10"/>
+  <text class="ntitle" x="28" y="293">Telefoondata</text>
+  <text class="nsub" x="28" y="308">genoemd in STRATEGY.md</text>
+  <text class="nsub" x="28" y="320">nog geen bron, nog geen code</text>
+</g>
+<g class="node" data-cats="tijd browser">
+  <rect class="nbox n-app" x="16" y="364" width="192" height="62" rx="10"/>
+  <text class="ntitle" x="28" y="385">Redacteur</text>
+  <text class="nsub" x="28" y="400">doorlicht per kwartaal de top 10</text>
+  <text class="nsub" x="28" y="412">slechtst scorende pagina&#8217;s</text>
+</g>
+<g class="node" data-cats="browser">
+  <rect class="nbox n-browser" x="16" y="456" width="192" height="80" rx="10"/>
+  <text class="ntitle" x="28" y="476">Schrijfwijzer &amp;</text>
+  <text class="ntitle" x="28" y="490">dienstverleningsstrategie</text>
+  <text class="nsub" x="28" y="506">document van de redactie</text>
+  <text class="nsub" x="28" y="518">(.md-bestand of geplakte tekst)</text>
+</g>
+
+<g class="node" data-cats="ext db tijd keuze">
+  <rect class="nbox n-app" x="308" y="112" width="248" height="104" rx="10"/>
+  <text class="ntitle" x="322" y="134">Inlezen, combineren &amp; scoren</text>
+  <text class="nsub" x="322" y="152">csv.ts · score.ts — alleen in het geheugen</text>
+  <text class="nmono" x="322" y="167">detecteerKolommen → naarFeedbackItems</text>
+  <text class="nmono" x="322" y="180">→ berekenScores → topSlechtste</text>
+  <text class="nsub" x="322" y="197">drempel: minstens 10 reacties · top 10</text>
+</g>
+<g class="node" data-cats="db tijd browser ext">
+  <rect class="nbox n-app" x="308" y="264" width="248" height="104" rx="10"/>
+  <text class="ntitle" x="322" y="286">Ranglijst &amp; detailpaneel</text>
+  <text class="nsub" x="322" y="304">ScoreTabel · AnalysePaneel — React-state</text>
+  <text class="nsub" x="322" y="318">score %, aantal ja/nee, afstand tot 80%</text>
+  <text class="nsub" x="322" y="332">toelichtingen inklapbaar per pagina</text>
+  <text class="nsub" x="322" y="350">let op: paneel reset bij een andere pagina</text>
+</g>
+<g class="node" data-cats="browser">
+  <rect class="nbox n-browser" x="308" y="420" width="136" height="88" rx="10"/>
+  <text class="ntitle" x="320" y="441">localStorage</text>
+  <text class="nsub" x="320" y="456">deze browser, dit apparaat</text>
+  <text class="nsub" x="320" y="470">sleutel:</text>
+  <text class="nmono" x="320" y="483">contentscoren.</text>
+  <text class="nmono" x="320" y="495">schrijfwijzer</text>
+</g>
+<g class="node" data-cats="tijd">
+  <rect class="nbox n-tijd dash" x="456" y="420" width="100" height="88" rx="10"/>
+  <text class="ntitle" x="468" y="442">Klembord</text>
+  <text class="nsub" x="468" y="459">→ CMS van de</text>
+  <text class="nsub" x="468" y="471">redactie</text>
+  <text class="nsub" x="468" y="489">buiten de app</text>
+</g>
+
+<g class="node" data-cats="ext">
+  <rect class="nbox n-app" x="656" y="112" width="232" height="68" rx="10"/>
+  <text class="ntitle" x="670" y="134">GET /api/voorbeelddata</text>
+  <text class="nsub" x="670" y="151">serveert data/voorbeeld-feedback.csv</text>
+  <text class="nsub" x="670" y="165">uit de repo — knop &#8220;Voorbeelddata laden&#8221;</text>
+</g>
+<g class="node" data-cats="tijd ext db">
+  <rect class="nbox n-app" x="656" y="264" width="232" height="104" rx="10"/>
+  <text class="ntitle" x="670" y="286">POST /api/analyze</text>
+  <text class="nsub" x="670" y="304">valideert met Zod · bouwt de systeemprompt</text>
+  <text class="nsub" x="670" y="318">API-sleutel uit .env.local blijft server-side</text>
+  <text class="nsub" x="670" y="332">hoogstens 300 reacties per verzoek</text>
+  <text class="nsub" x="670" y="350">schrijft zelf niets weg</text>
+</g>
+<g class="node" data-cats="ext">
+  <rect class="nbox n-ext" x="656" y="420" width="140" height="88" rx="10"/>
+  <text class="ntitle" x="668" y="441">Bestanden in</text>
+  <text class="ntitle" x="668" y="455">de repo (git)</text>
+  <text class="nmono" x="668" y="471">content/</text>
+  <text class="nmono" x="668" y="483">schrijfwijzer.md</text>
+  <text class="nsub" x="668" y="497">versiebeheer = git</text>
+</g>
+
+<g class="node" data-cats="tijd db">
+  <rect class="nbox n-tijd" x="988" y="264" width="196" height="104" rx="10"/>
+  <text class="ntitle" x="1000" y="287">Claude API</text>
+  <text class="nmono" x="1000" y="305">claude-opus-5</text>
+  <text class="nsub" x="1000" y="321">effort: high · max 16.000 tokens</text>
+  <text class="nsub" x="1000" y="335">vast JSON-antwoordschema (Zod)</text>
+  <text class="nsub" x="1000" y="352">systeemprompt wordt gecachet</text>
+</g>
+<text class="note" x="988" y="126">Alles wat hierheen gaat, verlaat je eigen</text>
+<text class="note" x="988" y="140">omgeving. De app stuurt daarom alleen de</text>
+<text class="note" x="988" y="154">feedback van de gekozen pagina mee —</text>
+<text class="note" x="988" y="168">nooit het hele bestand.</text>
+
+<g class="node" data-cats="db">
+  <rect class="nbox n-db dash" x="308" y="576" width="580" height="120" rx="12"/>
+  <text class="ntitle" x="328" y="606">Eigen database — bestaat nog niet</text>
+  <text class="nsub" x="328" y="626">Advies: dit is het enige wat duurzaam bewaard hoeft te worden. Al het andere mag weg of staat al ergens anders.</text>
+  <rect x="328" y="642" width="176" height="26" rx="6" class="nbox n-db"/>
+  <text class="nmono" x="416" y="659" text-anchor="middle">analyse per pagina + datum</text>
+  <rect x="518" y="642" width="164" height="26" rx="6" class="nbox n-db"/>
+  <text class="nmono" x="600" y="659" text-anchor="middle">kwartaalscore per pagina</text>
+  <rect x="696" y="642" width="176" height="26" rx="6" class="nbox n-db dash"/>
+  <text class="nmono" x="784" y="659" text-anchor="middle">status: opgepakt / klaar</text>
+</g>
+
+<!-- ============ FLOWS ============ -->
+<g class="flow" data-cat="ext">
+  <path class="arr a-ext" d="M112,122 L112,160" marker-end="url(#ah-ext)"/>
+  <text class="lbl start" x="120" y="136">handmatige export</text>
+  <text class="lbl start" x="120" y="147">per kwartaal</text>
+  <text class="crudline start crud-ext" x="120" y="158">GEEN DB-ACTIE</text>
+</g>
+<g class="flow" data-cat="ext">
+  <path class="arr a-ext" d="M208,202 L304,168" marker-end="url(#ah-ext)"/>
+  <rect class="lbg" x="208" y="140" width="92" height="50" rx="5"/>
+  <text class="lbl" x="254" y="153">CSV-tekst:</text>
+  <text class="lbl" x="254" y="164">url, titel, datum,</text>
+  <text class="lbl" x="254" y="175">nuttig, toelichting</text>
+  <text class="crudline crud-ext" x="254" y="186">GEEN DB-ACTIE</text>
+</g>
+<g class="flow" data-cat="keuze">
+  <path class="arr a-keuze dash" d="M208,303 L304,191" marker-end="url(#ah-keuze)"/>
+  <rect class="lbg" x="208" y="226" width="96" height="40" rx="5"/>
+  <text class="lbl" x="256" y="239">telefoondata —</text>
+  <text class="lbl" x="256" y="250">nog geen koppeling</text>
+  <text class="crudline crud-keuze" x="256" y="261">NIET GEBOUWD</text>
+</g>
+<g class="flow" data-cat="tijd">
+  <path class="arr a-tijd" d="M208,395 L304,307" marker-end="url(#ah-tijd)"/>
+  <rect class="lbg" x="208" y="325" width="100" height="50" rx="5"/>
+  <text class="lbl" x="258" y="338">kolomkeuze,</text>
+  <text class="lbl" x="258" y="349">paginakeuze,</text>
+  <text class="lbl" x="258" y="360">klik Analyseer</text>
+  <text class="crudline crud-tijd" x="258" y="371">GEEN DB-ACTIE</text>
+</g>
+<g class="flow" data-cat="browser">
+  <path class="arr a-browser" d="M208,496 L304,441" marker-end="url(#ah-browser)"/>
+  <rect class="lbg" x="208" y="443" width="100" height="50" rx="5"/>
+  <text class="lbl" x="258" y="456">schrijfwijzer-tekst</text>
+  <text class="lbl" x="258" y="467">laden of plakken</text>
+  <text class="lbl" x="258" y="478">(max 40.000 tekens)</text>
+  <text class="crudline crud-browser" x="258" y="489">C · U · D</text>
+</g>
+
+<g class="flow" data-cat="db">
+  <path class="arr a-db" d="M432,216 L432,260" marker-end="url(#ah-db)"/>
+  <rect class="lbg" x="436" y="220" width="120" height="40" rx="5"/>
+  <text class="lbl start" x="440" y="233">PaginaScore[] — top 10</text>
+  <text class="lbl start" x="440" y="244">url, titel, ja/nee, score%</text>
+  <text class="crudline start crud-db" x="440" y="255">ADVIES: C · R</text>
+</g>
+<g class="flow" data-cat="browser">
+  <path class="arr a-browser" d="M376,420 L376,372" marker-end="url(#ah-browser)"/>
+  <rect class="lbg" x="384" y="376" width="64" height="40" rx="5"/>
+  <text class="lbl start" x="388" y="389">schrijfwijzer</text>
+  <text class="lbl start" x="388" y="400">bij openen</text>
+  <text class="crudline start crud-browser" x="388" y="411">R</text>
+</g>
+<g class="flow" data-cat="tijd">
+  <path class="arr a-tijd" d="M506,368 L506,416" marker-end="url(#ah-tijd)"/>
+  <rect class="lbg" x="462" y="380" width="88" height="30" rx="5"/>
+  <text class="lbl" x="506" y="392">voorbeeldtekst</text>
+  <text class="crudline crud-tijd" x="506" y="404">GEEN DB-ACTIE</text>
+</g>
+
+<g class="flow" data-cat="ext">
+  <path class="arr a-ext" d="M656,146 L560,152" marker-end="url(#ah-ext)"/>
+  <rect class="lbg" x="558" y="95" width="96" height="50" rx="5"/>
+  <text class="lbl" x="606" y="108">voorbeeld-</text>
+  <text class="lbl" x="606" y="119">feedback.csv</text>
+  <text class="lbl" x="606" y="130">(76 fictieve regels)</text>
+  <text class="crudline crud-ext" x="606" y="141">R UIT BESTAND</text>
+</g>
+<g class="flow" data-cat="tijd">
+  <path class="arr a-tijd" d="M556,288 L652,278" marker-end="url(#ah-tijd)"/>
+  <rect class="lbg" x="558" y="206" width="96" height="60" rx="5"/>
+  <text class="lbl" x="606" y="219">url, titel, score%,</text>
+  <text class="lbl" x="606" y="230">schrijfwijzer +</text>
+  <text class="lbl" x="606" y="241">toelichtingen van</text>
+  <text class="lbl" x="606" y="252">1 pagina (max 300)</text>
+  <text class="crudline crud-tijd" x="606" y="263">GEEN DB-ACTIE</text>
+</g>
+<g class="flow" data-cat="db">
+  <path class="arr a-db" d="M656,348 L560,356" marker-end="url(#ah-db)"/>
+  <rect class="lbg" x="558" y="293" width="96" height="50" rx="5"/>
+  <text class="lbl" x="606" y="306">analyse-JSON +</text>
+  <text class="lbl" x="606" y="317">bron schrijfwijzer</text>
+  <text class="lbl" x="606" y="328">(nu niet bewaard)</text>
+  <text class="crudline crud-db" x="606" y="339">ADVIES: C</text>
+</g>
+<g class="flow" data-cat="ext">
+  <path class="arr a-ext" d="M726,420 L726,372" marker-end="url(#ah-ext)"/>
+  <rect class="lbg" x="604" y="369" width="114" height="50" rx="5"/>
+  <text class="lbl end" x="712" y="382">content/</text>
+  <text class="lbl end" x="712" y="393">schrijfwijzer.md</text>
+  <text class="lbl end" x="712" y="404">(max 40.000 tekens)</text>
+  <text class="crudline end crud-ext" x="712" y="415">R UIT BESTAND</text>
+</g>
+
+<g class="flow" data-cat="tijd">
+  <path class="arr a-tijd" d="M888,290 L984,290" marker-end="url(#ah-tijd)"/>
+  <rect class="lbg" x="890" y="224" width="96" height="60" rx="5"/>
+  <text class="lbl" x="938" y="237">systeemprompt</text>
+  <text class="lbl" x="938" y="248">(+ schrijfwijzer)</text>
+  <text class="lbl" x="938" y="259">+ toelichtingen</text>
+  <text class="lbl" x="938" y="270">van 1 pagina</text>
+  <text class="crudline crud-tijd" x="938" y="281">GEEN DB-ACTIE</text>
+</g>
+<g class="flow" data-cat="db">
+  <path class="arr a-db" d="M988,342 L892,342" marker-end="url(#ah-db)"/>
+  <rect class="lbg" x="890" y="355" width="96" height="50" rx="5"/>
+  <text class="lbl" x="938" y="368">samenvatting,</text>
+  <text class="lbl" x="938" y="379">oorzaken + citaten,</text>
+  <text class="lbl" x="938" y="390">suggesties</text>
+  <text class="crudline crud-db" x="938" y="401">ADVIES: C</text>
+</g>
+<g class="flow" data-cat="db">
+  <path class="arr a-db dash" d="M843,372 L843,572" marker-end="url(#ah-db)" marker-start="url(#ah-db)"/>
+  <rect class="lbg" x="798" y="445" width="92" height="50" rx="5"/>
+  <text class="lbl" x="844" y="458">advies: analyses</text>
+  <text class="lbl" x="844" y="469">&amp; kwartaalscores</text>
+  <text class="lbl" x="844" y="480">weg- en teruglezen</text>
+  <text class="crudline crud-db" x="844" y="491">C · R · U</text>
+</g>
+</svg>
+    </div>
+    <figcaption>
+      Eén CSV gaat de browser in en wordt daar gescoord; alleen de feedback van de gekozen pagina gaat naar de eigen
+      server, zodat de API-sleutel server-side blijft. De analyse komt terug op het scherm en verdwijnt daarna —
+      de stippellijn naar onderen is het enige wat ik zou toevoegen.
+    </figcaption>
+  </figure>
+</section>
+
+<section>
+  <span class="num">04 — matrix</span>
+  <h2>Per gegeven: waar het vandaan komt, wat ermee gebeurt, en of het mag blijven</h2>
+  <p class="lede">
+    Dezelfde namen en dezelfde keuzes als in het diagram. De filters hierboven werken ook op deze tabel.
+    &#8220;Nu&#8221; is wat de code vandaag doet; &#8220;advies&#8221; is wat ik zou veranderen.
+  </p>
+  <table class="matrix">
+    <caption>14 gegevens en handelingen, in de volgorde waarin een redacteur ze tegenkomt.</caption>
+    <thead>
+      <tr>
+        <th scope="col" style="width:17%">Gegeven of handeling</th>
+        <th scope="col" style="width:27%">Bron → verwerking → bestemming</th>
+        <th scope="col" class="crudcol" style="width:13%">CRUD &amp; waar</th>
+        <th scope="col" style="width:14%">Opslagkeuze</th>
+        <th scope="col" style="width:29%">Reden &amp; wat na herladen moet blijven</th>
+      </tr>
+    </thead>
+    <tbody>
+
+    <tr data-cat="ext">
+      <td data-label="Gegeven"><span class="st">gebouwd</span><span class="gname">Ruwe webfeedback (reacties van bezoekers)</span></td>
+      <td data-label="Route"><p class="route">
+        <span class="step"><b>Webfeedback-systeem</b>, handmatig geëxporteerd naar een CSV</span>
+        <span class="step"><code>leesCsv()</code> en <code>naarFeedbackItems()</code> in de browser</span>
+        <span class="step">werkgeheugen van de browser (React-state)</span></p></td>
+      <td class="crudcell" data-label="CRUD"><span class="none">geen databaseactie</span><span class="waar">lezen gebeurt uit een bestand, niet uit een database</span></td>
+      <td data-label="Opslagkeuze"><span class="chip ext">staat al extern — niet kopiëren</span></td>
+      <td data-label="Reden"><p class="reden">De export is het origineel en staat al in het feedbacksysteem. De toelichtingen zijn vrije tekst van bezoekers; een tweede kopie vergroot het risico zonder dat de use case erom vraagt — voor de analyse is één doorloop genoeg.</p>
+        <span class="blijft"><b>na herladen</b>Weg. De redacteur kiest het bestand opnieuw. Dat mag: het gebeurt één keer per kwartaal.</span></td>
+    </tr>
+
+    <tr data-cat="ext">
+      <td data-label="Gegeven"><span class="st">gebouwd</span><span class="gname">Voorbeelddata (76 fictieve reacties)</span></td>
+      <td data-label="Route"><p class="route">
+        <span class="step"><code>data/voorbeeld-feedback.csv</code> in de repo</span>
+        <span class="step"><code>GET /api/voorbeelddata</code>, daarna dezelfde verwerking als hierboven</span>
+        <span class="step">werkgeheugen van de browser</span></p></td>
+      <td class="crudcell" data-label="CRUD"><span class="crudletters"><b class="chip ext">R</b></span><span class="waar">uit een bestand op de server</span></td>
+      <td data-label="Opslagkeuze"><span class="chip ext">staat al in een bestand — niet kopiëren</span></td>
+      <td data-label="Reden"><p class="reden">Demo- en testmateriaal dat bij de code hoort: dezelfde ene kopie die ook de tests gebruiken. Git is hier de juiste bewaarplaats, geen database.</p>
+        <span class="blijft"><b>na herladen</b>Weg, en één klik om terug te halen.</span></td>
+    </tr>
+
+    <tr data-cat="keuze">
+      <td data-label="Gegeven"><span class="st plan">alleen strategie</span><span class="gname">Telefoondata</span></td>
+      <td data-label="Route"><p class="route">
+        <span class="step">nog geen bron</span>
+        <span class="step">zou met de webfeedback gecombineerd worden vóór het scoren</span>
+        <span class="step">ranglijst en analyse</span></p></td>
+      <td class="crudcell" data-label="CRUD"><span class="none">nog geen actie</span><span class="waar">niet gebouwd</span></td>
+      <td data-label="Opslagkeuze"><span class="chip keuze">keuze nodig</span></td>
+      <td data-label="Reden"><p class="reden">STRATEGY.md noemt telefoondata als tweede bron, maar er is geen bestand, geen koppeling en geen code.</p>
+        <span class="vraag"><b>vraag</b>Komt telefoondata als kwartaalexport of via een koppeling? En mag gespreksinhoud überhaupt in een eigen database staan? Dat antwoord bepaalt of hier opslag bij komt — beantwoord het vóór je bouwt.</span></td>
+    </tr>
+
+    <tr data-cat="keuze">
+      <td data-label="Gegeven"><span class="st">gebouwd</span><span class="gname">Kolom-mapping (welke kolom is de URL, welke het ja/nee)</span></td>
+      <td data-label="Route"><p class="route">
+        <span class="step">kolomnamen uit de CSV, geraden door <code>detecteerKolommen()</code></span>
+        <span class="step">redacteur corrigeert in <code>KolomMappingKiezer</code></span>
+        <span class="step">React-state, stuurt de verwerking aan</span></p></td>
+      <td class="crudcell" data-label="CRUD"><span class="none">geen databaseactie</span><span class="waar">nu nergens bewaard</span></td>
+      <td data-label="Opslagkeuze"><span class="chip keuze">keuze nodig</span><span class="waar">nu: tijdelijk</span></td>
+      <td data-label="Reden"><p class="reden">Bij één vaste export is opnieuw kiezen tien seconden werk, en dan is bewaren overbodige machinerie.</p>
+        <span class="vraag"><b>vraag</b>Komt de export elk kwartaal met dezelfde kolomnamen terug, en komen er meer bronnen bij? Twee keer ja → bewaar een mapping-profiel per bron. Anders niets doen.</span></td>
+    </tr>
+
+    <tr data-cat="db">
+      <td data-label="Gegeven"><span class="st">berekening gebouwd, opslag niet</span><span class="gname">Score per pagina (ja, nee, score %)</span></td>
+      <td data-label="Route"><p class="route">
+        <span class="step">feedback-items in het geheugen</span>
+        <span class="step"><code>berekenScores()</code> en <code>topSlechtste()</code> — drempel 10 reacties, top 10</span>
+        <span class="step">ranglijst op het scherm <b>(advies: ook naar de eigen database)</b></span></p></td>
+      <td class="crudcell" data-label="CRUD"><span class="none">nu: geen databaseactie</span><span class="crudletters" style="margin-top:6px;display:inline-block"><b class="chip db">C</b><b class="chip db">R</b></span><span class="waar">advies: één regel per pagina per kwartaal, in de eigen database</span></td>
+      <td data-label="Opslagkeuze"><span class="chip db">duurzaam bewaren (advies)</span><span class="waar">nu: tijdelijk</span></td>
+      <td data-label="Reden"><p class="reden">De strategie meet succes als &#8220;belangrijke content haalt 80%+&#8221;. Dat is alleen te zien met kwartalen naast elkaar: haalde <code>/paspoort-aanvragen-buitenland</code> na jullie herschrijving meer dan de 41,7% van vorig kwartaal? Zonder snapshot is die vraag onbeantwoordbaar, want de oude export heb je dan al niet meer. De berekening mag weg, de uitkomst niet — en dit is klein: een handvol getallen per pagina, zonder toelichtingen.</p>
+        <span class="blijft"><b>na herladen</b>Nu weg. Zou moeten blijven: de kwartaalsnapshot, permanent.</span></td>
+    </tr>
+
+    <tr data-cat="tijd">
+      <td data-label="Gegeven"><span class="st">gebouwd</span><span class="gname">Paginakeuze en knopkliks</span></td>
+      <td data-label="Route"><p class="route">
+        <span class="step">redacteur klikt een pagina aan of drukt op &#8220;Analyseer met AI&#8221;</span>
+        <span class="step">React-state: <code>geselecteerd</code>, laad- en foutstatus</span>
+        <span class="step">bepaalt wat het scherm toont</span></p></td>
+      <td class="crudcell" data-label="CRUD"><span class="none">geen databaseactie</span><span class="waar">alleen weergave</span></td>
+      <td data-label="Opslagkeuze"><span class="chip tijd">tijdelijk — mag weg</span></td>
+      <td data-label="Reden"><p class="reden">Puur bedieningstoestand. Dit bewaren zou de app alleen maar verwarrender maken.</p>
+        <span class="blijft"><b>na herladen</b>Weg, en dat hoort zo.</span></td>
+    </tr>
+
+    <tr data-cat="browser">
+      <td data-label="Gegeven"><span class="st">gebouwd</span><span class="gname">Schrijfwijzer die de redacteur zelf inlaadt</span></td>
+      <td data-label="Route"><p class="route">
+        <span class="step">.md-bestand of geplakte tekst van de redactie</span>
+        <span class="step"><code>SchrijfwijzerKiezer</code> → <code>bewaar()</code> → <b>localStorage</b></span>
+        <span class="step">bij elke analyse meegestuurd naar <code>/api/analyze</code></span></p></td>
+      <td class="crudcell" data-label="CRUD"><span class="crudletters"><b class="chip browser">C</b><b class="chip browser">R</b><b class="chip browser">U</b><b class="chip browser">D</b></span><span class="waar">in localStorage, sleutel <code>contentscoren.schrijfwijzer</code> — niet in een database</span></td>
+      <td data-label="Opslagkeuze"><span class="chip browser">browseropslag — dit ís opslag</span></td>
+      <td data-label="Reden"><p class="reden">Alle vier de letters zitten er al in: intypen of laden (C), teruglezen bij het openen (R), aanpassen (U), &#8220;Wissen&#8220;#8220;Wissen&#8220;Wissen&#8220;#8221; (D). Dit is geen werkgeheugen: de tekst overleeft het sluiten van het tabblad en blijft staan tot iemand hem wist. Wél alleen in díe browser op dát apparaat — een collega ziet hem niet en een nieuwe laptop begint leeg.</p>
+        <span class="vraag"><b>vraag</b>Moet de schrijfwijzer voor de hele redactie gelden? Dan hoort hij op de server of in de repo, niet in localStorage. Geldt hij per redacteur, dan is dit precies goed.</span></td>
+    </tr>
+
+    <tr data-cat="ext">
+      <td data-label="Gegeven"><span class="st">gebouwd</span><span class="gname">Schrijfwijzer in de repo</span></td>
+      <td data-label="Route"><p class="route">
+        <span class="step"><code>content/schrijfwijzer.md</code> in de repo</span>
+        <span class="step"><code>laadSchrijfwijzer()</code> op de server, ingekort tot 40.000 tekens</span>
+        <span class="step">de systeemprompt, achter de cachemarkering</span></p></td>
+      <td class="crudcell" data-label="CRUD"><span class="crudletters"><b class="chip ext">R</b></span><span class="waar">uit een bestand; wijzigen gaat via git, niet via de app</span></td>
+      <td data-label="Opslagkeuze"><span class="chip ext">staat al in een bestand — niet kopiëren</span></td>
+      <td data-label="Reden"><p class="reden">Git is hier betere opslag dan een database: reviewbaar, terug te draaien, en het reist mee met de deploy. Let op — dit bestand bevat nu nog een startset met algemene richtlijnen, niet het vastgestelde beleid van de redactie.</p>
+        <span class="blijft"><b>na herladen</b>Blijft bestaan, in git.</span></td>
+    </tr>
+
+    <tr data-cat="tijd">
+      <td data-label="Gegeven"><span class="st">gebouwd</span><span class="gname">Analyseverzoek voor één pagina</span></td>
+      <td data-label="Route"><p class="route">
+        <span class="step">ranglijst in de browser</span>
+        <span class="step"><code>POST /api/analyze</code>: url, titel, score %, schrijfwijzer en de toelichtingen van díe ene pagina (hoogstens 300)</span>
+        <span class="step">de route-handler op de server</span></p></td>
+      <td class="crudcell" data-label="CRUD"><span class="none">geen databaseactie</span><span class="waar">alleen transport</span></td>
+      <td data-label="Opslagkeuze"><span class="chip tijd">tijdelijk — mag weg</span></td>
+      <td data-label="Reden"><p class="reden">Bewuste keuze in de code: alleen de gekozen pagina gaat naar de server, niet het hele bestand. De server bewaart het verzoek niet.</p>
+        <span class="blijft"><b>na herladen</b>Weg. Prima — het is opnieuw te sturen.</span></td>
+    </tr>
+
+    <tr data-cat="tijd">
+      <td data-label="Gegeven"><span class="st">gebouwd</span><span class="gname">De prompt naar Claude</span></td>
+      <td data-label="Route"><p class="route">
+        <span class="step">basisinstructies + schrijfwijzer + de toelichtingen</span>
+        <span class="step"><code>/api/analyze</code> stelt systeem- en gebruikersprompt samen</span>
+        <span class="step">Claude API (<code>claude-opus-5</code>)</span></p></td>
+      <td class="crudcell" data-label="CRUD"><span class="none">geen databaseactie</span><span class="waar">per verzoek opgebouwd</span></td>
+      <td data-label="Opslagkeuze"><span class="chip tijd">tijdelijk — mag weg</span></td>
+      <td data-label="Reden"><p class="reden">Volledig afgeleide tekst: uit bron plus code opnieuw te maken. De systeemprompt wordt bij de dienst zelf gecachet om een reeks analyses goedkoper te maken — dat is caching, geen opslag van jou.</p>
+        <span class="blijft"><b>na herladen</b>Weg.</span></td>
+    </tr>
+
+    <tr data-cat="db">
+      <td data-label="Gegeven"><span class="st">weergave gebouwd, opslag niet</span><span class="gname">De AI-analyse: samenvatting, oorzaken met citaten, verbetersuggesties, vertrouwen</span></td>
+      <td data-label="Route"><p class="route">
+        <span class="step">Claude API, in een afgedwongen JSON-schema</span>
+        <span class="step"><code>/api/analyze</code> geeft het door, zonder iets weg te schrijven</span>
+        <span class="step">detailpaneel op het scherm <b>(advies: ook naar de eigen database)</b></span></p></td>
+      <td class="crudcell" data-label="CRUD"><span class="none">nu: geen databaseactie</span><span class="crudletters" style="margin-top:6px;display:inline-block"><b class="chip db">C</b><b class="chip db">R</b><b class="chip db">D</b></span><span class="waar">advies: aanmaken na elke analyse, teruglezen bij openen, opruimen wat verouderd is — in de eigen database</span></td>
+      <td data-label="Opslagkeuze"><span class="chip db">duurzaam bewaren (advies)</span><span class="waar">nu: tijdelijk</span></td>
+      <td data-label="Reden"><p class="reden">Het sterkste geval van alle veertien. Elke analyse kost een API-aanroep en ongeveer een halve minuut. Nu is het resultaat wég zodra de redacteur een andere pagina aanklikt — <code>AnalysePaneel</code> krijgt <code>key={url}</code>, dus terugklikken geeft een leeg paneel — en herladen wist alles. Een kwartaalklus van tien pagina&#8217;s is geen zitting van twintig minuten: er wordt over meerdere dagen aan gewerkt, het voorstel gaat langs een collega, en volgend kwartaal wil je terugkijken of de suggestie heeft geholpen. <b>U is hier niet nodig:</b> een analyse is een momentopname; een nieuwe analyse is een nieuwe regel, geen wijziging van de oude.</p>
+        <span class="blijft"><b>na herladen</b>Nu weg. Zou moeten blijven: analyse, datum, de score van dat moment en welke schrijfwijzer is gebruikt.</span></td>
+    </tr>
+
+    <tr data-cat="tijd">
+      <td data-label="Gegeven"><span class="st">gebouwd</span><span class="gname">Voorbeeldtekst naar het klembord</span></td>
+      <td data-label="Route"><p class="route">
+        <span class="step">verbetersuggestie in het detailpaneel</span>
+        <span class="step">knop &#8220;Kopieer voorbeeldtekst&#8221; → <code>navigator.clipboard</code></span>
+        <span class="step">CMS van de redactie — buiten de app</span></p></td>
+      <td class="crudcell" data-label="CRUD"><span class="none">geen databaseactie</span><span class="waar">verlaat de app</span></td>
+      <td data-label="Opslagkeuze"><span class="chip tijd">tijdelijk — mag weg</span></td>
+      <td data-label="Reden"><p class="reden">De gepubliceerde tekst leeft in het CMS; dat is het systeem van waarheid voor content. Contentscoren hoeft daar geen kopie van te houden — de suggestie zelf bewaar je al via de analyse hierboven.</p>
+        <span class="blijft"><b>na herladen</b>Weg uit de app; de tekst staat dan in het CMS.</span></td>
+    </tr>
+
+    <tr data-cat="db">
+      <td data-label="Gegeven"><span class="st plan">alleen strategie</span><span class="gname">Werkstroomstatus per pagina (opgepakt / voorstel geplaatst / afgerond)</span></td>
+      <td data-label="Route"><p class="route">
+        <span class="step">redacteur vinkt af tijdens de kwartaalklus</span>
+        <span class="step">bestaat nog niet — geen code</span>
+        <span class="step">zou naar de eigen database gaan en terug in de ranglijst komen</span></p></td>
+      <td class="crudcell" data-label="CRUD"><span class="crudletters"><b class="chip db">C</b><b class="chip db">R</b><b class="chip db">U</b></span><span class="waar">advies, in de eigen database. <b>D is hier niet nodig:</b> een afgeronde kwartaalklus is historie, geen afval.</span></td>
+      <td data-label="Opslagkeuze"><span class="chip db">duurzaam bewaren (advies)</span><span class="waar">pas bouwen wanneer nodig</span></td>
+      <td data-label="Reden"><p class="reden">STRATEGY.md noemt &#8220;redacteursplanning &amp; werkstroom&#8221; als eigen spoor, en een kwartaalplanning die je kwijt bent zodra je het tabblad sluit, is geen planning. Maar zolang één redacteur in één zitting werkt, is dit uitstelbaar: begin met de analyses, voeg dit toe zodra een tweede redacteur meedoet of een klus meerdere dagen duurt.</p>
+        <span class="blijft"><b>na herladen</b>Zou moeten blijven, per kwartaal.</span></td>
+    </tr>
+
+    <tr data-cat="ext">
+      <td data-label="Gegeven"><span class="st">gebouwd</span><span class="gname">API-sleutel <code>ANTHROPIC_API_KEY</code></span></td>
+      <td data-label="Route"><p class="route">
+        <span class="step"><code>.env.local</code> op de server (voorbeeldwaarde in <code>.env.example</code>: <code>sk-ant-...</code>)</span>
+        <span class="step">uitgelezen door <code>/api/analyze</code></span>
+        <span class="step">meegestuurd naar de Claude API — komt nooit in de browser</span></p></td>
+      <td class="crudcell" data-label="CRUD"><span class="none">geen databaseactie</span><span class="waar">nooit in een database, nooit in de browser</span></td>
+      <td data-label="Opslagkeuze"><span class="chip ext">staat al in de omgeving — niet kopiëren</span></td>
+      <td data-label="Reden"><p class="reden">Een sleutel hoort in de omgeving van de server, niet in je gegevens. De app is hier al goed op ingericht: de browser roept <code>/api/analyze</code> aan en ziet de sleutel nooit. Dat is meteen de reden dat er überhaupt een server-route is.</p>
+        <span class="blijft"><b>na herladen</b>Blijft bestaan, in de omgeving van de server.</span></td>
+    </tr>
+
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <span class="num">05 — aannames</span>
+  <div class="aannames">
+    <h2 style="font-size:20px">Wat ik heb aangenomen</h2>
+    <p class="lede" style="margin-bottom:0">Elk van deze aannames kan het advies veranderen. Klopt er één niet, zeg het dan — dan pas ik de betreffende regel aan.</p>
+    <ol>
+      <li><b>De app staat nog niet op <code>main</code>.</b> Op <code>main</code> staan alleen <code>README.md</code> en <code>STRATEGY.md</code>. Alle code die hier in kaart is gebracht, komt uit de open pull request #2 (branch <code>claude/vigilant-rubin-l5zlet</code>). &#8220;Gebouwd&#8221; betekent dus: geschreven en getest, wachtend op merge.</li>
+      <li><b>Er is geen koppeling met het webfeedback-systeem.</b> Aangenomen is dat de redacteur de export met de hand maakt — dat is wat de code ondersteunt, en de strategie noemt de koppeling als wens, niet als bestaande situatie.</li>
+      <li><b>Eén redactie, een handvol redacteuren, een eigen omgeving.</b> Bij tientallen gebruikers of meerdere teams veranderen twee adviezen: de schrijfwijzer hoort dan op de server in plaats van in localStorage, en de werkstroomstatus wordt urgenter.</li>
+      <li><b>De toelichtingen in een echte export zijn vrije tekst van bezoekers</b> en kunnen dus persoonsgegevens bevatten. Dat is mijn reden om ze niet naar een eigen database te kopiëren. Klopt die aanname niet, dan wordt dat gegeven een &#8220;keuze nodig&#8221; in plaats van een &#8220;niet kopiëren&#8221;.</li>
+      <li><b>Alle getallen komen uit het voorbeeldbestand.</b> 76 reacties, 7 pagina&#8217;s, 41,7% — dat is verzonnen demodata over reisdocumenten uit <code>data/voorbeeld-feedback.csv</code>, geen echte bezoekersreacties. Er staan geen sleutels of persoonsgegevens op deze pagina.</li>
+    </ol>
+  </div>
+</section>
+
+<section class="advies">
+  <span class="num">06 — voorstel</span>
+  <h2>Heb je een database nodig?</h2>
+  <p class="lede" style="max-width:66ch">
+    Voor wat er vandaag draait: nee. De app is bewust staatloos en dat werkt — een redacteur kan er in één zitting
+    een pagina mee doorlichten zonder dat er iets bewaard wordt. Maar de strategie belooft twee dingen die zonder
+    opslag niet waar te maken zijn: een <b>kwartaalritme</b>, en meten of belangrijke content <b>80%+</b> haalt.
+    Zodra je daaraan begint, is één kleine database het antwoord — met twee tabellen, waarvan je er één nu al nodig hebt.
+  </p>
+
+  <pre><b>analyse</b>            id · pagina_url · kwartaal · gemaakt_op
+                   score_pct · samenvatting · oorzaken (json)
+                   suggesties (json) · vertrouwen · schrijfwijzer_bron
+
+<b>paginascore</b>        pagina_url · titel · kwartaal · ja · nee · score_pct
+                   (één regel per pagina per kwartaal)
+
+voorbeeldregel:    /paspoort-aanvragen-buitenland · 2026-Q3 · 41,7%
+                   12 ja · 17 nee · vertrouwen: hoog</pre>
+
+  <div class="adviesgrid">
+    <div class="adviescol keep">
+      <h3>Minimaal bewaren</h3>
+      <ol>
+        <li><b>De AI-analyse per pagina</b>, met datum en de score van dat moment. Begin hiermee — het kost een API-aanroep en een halve minuut per stuk, en nu is het weg zodra je doorklikt.</li>
+        <li><b>De kwartaalscore per pagina.</b> Een handvol getallen, en het enige wat de vraag &#8220;haalt deze pagina inmiddels 80%?&#8221; beantwoordbaar maakt.</li>
+        <li><b>De werkstroomstatus</b> — pas bouwen zodra een tweede redacteur meedoet of een klus meerdere dagen duurt.</li>
+      </ol>
+    </div>
+    <div class="adviescol drop">
+      <h3>Niet bewaren</h3>
+      <ul>
+        <li>De <b>ruwe reacties</b> en losse toelichtingen — die staan al in het feedbacksysteem en in de export.</li>
+        <li>De <b>CSV-rijen, de kolom-mapping en alle UI-toestand</b> — invoer en bediening.</li>
+        <li>De <b>prompts</b> naar Claude — volledig afgeleid.</li>
+        <li>De <b>gekopieerde voorbeeldtekst</b> — die leeft verder in het CMS.</li>
+        <li>De <b>schrijfwijzer in de repo</b> en de <b>API-sleutel</b> — git en de serveromgeving zijn daar de betere plek.</li>
+      </ul>
+    </div>
+    <div class="adviescol ask">
+      <h3>Nog te beslissen</h3>
+      <ol>
+        <li><b>Schrijfwijzer:</b> geldt hij voor de hele redactie of per redacteur? Voor de hele redactie → naar de server, weg uit localStorage.</li>
+        <li><b>Telefoondata:</b> export of koppeling, en mag gespreksinhoud in een eigen database? Beantwoord dit vóór je bouwt.</li>
+        <li><b>Kolom-mapping:</b> wisselen de kolomnamen per kwartaal of per bron? Zo nee, laat bewaren achterwege.</li>
+        <li><b>Bewaartermijn:</b> hoe lang blijven analyses staan? Zonder afspraak groeit de tabel stilletjes door.</li>
+      </ol>
+    </div>
+  </div>
+
+  <p class="verdict">
+    <b>Kortom:</b> bouw geen database om de app te laten werken — dat hoeft niet. Bouw er één zodra je wilt dat een
+    analyse een herlaadbeurt overleeft en dat je volgend kwartaal kunt terugkijken. Eén tabel (<code>analyse</code>)
+    lost het grootste dagelijkse ongemak op; de tweede (<code>paginascore</code>) maakt de belofte uit de strategie
+    meetbaar. Alles daarbuiten kan blijven zoals het is.
+  </p>
+</section>
+
+<footer>
+  Opgesteld op basis van <code>STRATEGY.md</code>, pull request #2 en de code in <code>src/</code> van
+  <code>NWW-team/contentscoren</code>. Deze pagina verandert niets aan de werking van de app en maakt geen database aan.
+  Alle voorbeeldwaarden zijn fictief.
+</footer>
+
+</div>
+<script>
+(function () {
+  var body = document.body;
+  var rows = Array.prototype.slice.call(document.querySelectorAll('.matrix tbody tr'));
+  var tally = document.getElementById('tally');
+  var total = rows.length;
+  var toon = { alle: null, db: ['db', 'keuze'], geendb: ['ext', 'tijd', 'browser'] };
+
+  function filter(naam) {
+    body.classList.remove('f-db', 'f-geendb');
+    if (naam !== 'alle') body.classList.add('f-' + naam);
+
+    var toegestaan = toon[naam];
+    var zichtbaar = 0;
+    rows.forEach(function (rij) {
+      var ok = !toegestaan || toegestaan.indexOf(rij.getAttribute('data-cat')) !== -1;
+      rij.hidden = !ok;
+      if (ok) zichtbaar++;
+    });
+    tally.textContent = zichtbaar + ' van ' + total + ' gegevens';
+  }
+
+  document.querySelectorAll('.seg button').forEach(function (knop) {
+    knop.addEventListener('click', function () {
+      document.querySelectorAll('.seg button').forEach(function (b) {
+        b.setAttribute('aria-pressed', String(b === knop));
+      });
+      filter(knop.getAttribute('data-filter'));
+    });
+  });
+
+  var crudbtn = document.getElementById('crudbtn');
+  crudbtn.addEventListener('click', function () {
+    var aan = crudbtn.getAttribute('aria-pressed') === 'true';
+    crudbtn.setAttribute('aria-pressed', String(!aan));
+    body.classList.toggle('no-crud', aan);
+  });
+})();
+</script>
+</body>
+</html>
